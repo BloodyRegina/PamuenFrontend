@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import MainLayout from './components/layout/MainLayout';
+import React, { useState } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
+import MainLayout from "./components/layout/MainLayout";
 
 // Pages
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Home from './pages/Home';
-import UserManage from './pages/admin/UserManage';
-import EvaluationList from './pages/admin/EvaluationList';
-import EvaluationDetail from './pages/admin/EvaluationDetail';
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Home from "./pages/Home";
+import UserManage from "./pages/admin/UserManage";
+import EvaluationList from "./pages/admin/EvaluationList";
+import EvaluationDetail from "./pages/admin/EvaluationDetail";
+import MyEvaluations from "./pages/me/MyEvaluations";
+import EvaluatorTasks from "./pages/evaluator/EvaluatorTasks";
 
 // Private Route Wrapper
 const PrivateRoute = ({ children, auth }) => {
@@ -30,7 +38,7 @@ const AuthRoute = ({ children, auth }) => {
 
 // Admin Route Wrapper
 const AdminRoute = ({ children, auth }) => {
-  if (!auth || auth.role !== 'ADMIN') {
+  if (!auth || auth.role !== "ADMIN") {
     return <Navigate to="/home" replace />;
   }
   return children;
@@ -104,9 +112,13 @@ function App() {
             }
           />
         </Route>
-
+        <Route path="/me/evaluations" element={<MyEvaluations />} />
+        <Route path="/evaluator/evaluations" element={<EvaluatorTasks />} />
         {/* Catch all */}
-        <Route path="*" element={<Navigate to={auth ? "/home" : "/login"} replace />} />
+        <Route
+          path="*"
+          element={<Navigate to={auth ? "/home" : "/login"} replace />}
+        />
       </Routes>
     </BrowserRouter>
   );
