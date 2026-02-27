@@ -18,6 +18,7 @@ import EvaluationDetail from "./pages/admin/EvaluationDetail";
 import MyEvaluations from "./pages/me/MyEvaluations";
 import EvaluatorTasks from "./pages/evaluator/EvaluatorTasks";
 import AssessmentForm from './pages/evaluator/AssessmentForm';
+import MyEvaluationDetail from './pages/me/MyEvaluationDetail';
 
 // Private Route Wrapper
 const PrivateRoute = ({ children, auth }) => {
@@ -116,6 +117,7 @@ function App() {
         <Route path="/me/evaluations" element={<MyEvaluations />} />
         <Route path="/evaluator/evaluations" element={<EvaluatorTasks />} />
         <Route path="/evaluator/assess/:assignmentId" element={<AssessmentForm />} />
+        <Route path="/me/evaluations/:assignmentId" element={<MyEvaluationDetail />} />
         {/* Catch all */}
         <Route
           path="*"
