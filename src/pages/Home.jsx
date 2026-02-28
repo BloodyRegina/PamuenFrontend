@@ -10,7 +10,36 @@ const Home = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // ดึงข้อมูล User จาก LocalStorage
+        // ✅ ย้ายฟังก์ชันเข้ามาข้างใน เพื่อป้องกัน Infinite Loop
+        const fetchDashboardData = async (role) => {
+            try {
+                setLoading(true);
+                if (role === 'ADMIN') {
+                    const [usersRes, evalsRes] = await Promise.all([
+                        api.get('/admin/users'),
+                        api.get('/admin/evaluations')
+                    ]);
+                    setStats({
+                        totalUsers: usersRes.data.data?.length || 0,
+                        totalEvals: evalsRes.data.data?.length || 0
+                    });
+                } else if (role === 'EVALUATOR' || role === 'EVALUATEE') {
+                    const endpoint = role === 'EVALUATOR' ? '/evaluator/assignments' : '/me/evaluations';
+                    const res = await api.get(endpoint);
+                    const assignments = res.data.data || [];
+                    setStats({
+                        total: assignments.length,
+                        completed: assignments.filter(a => a.status === 'COMPLETED').length,
+                        pending: assignments.filter(a => a.status !== 'COMPLETED').length
+                    });
+                }
+            } catch (error) {
+                console.error("Failed to fetch dashboard data", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
         const userData = localStorage.getItem('user');
         if (userData) {
             const parsedUser = JSON.parse(userData);
@@ -19,43 +48,7 @@ const Home = () => {
         } else {
             navigate('/login');
         }
-    }, [navigate]);
-
-    const fetchDashboardData = async (role) => {
-        try {
-            setLoading(true);
-            if (role === 'ADMIN') {
-                const [usersRes, evalsRes] = await Promise.all([
-                    api.get('/admin/users'),
-                    api.get('/admin/evaluations')
-                ]);
-                setStats({
-                    totalUsers: usersRes.data.data?.length || 0,
-                    totalEvals: evalsRes.data.data?.length || 0
-                });
-            } else if (role === 'EVALUATOR') {
-                const res = await api.get('/evaluator/assignments');
-                const assignments = res.data.data || [];
-                setStats({
-                    total: assignments.length,
-                    completed: assignments.filter(a => a.status === 'COMPLETED').length,
-                    pending: assignments.filter(a => a.status !== 'COMPLETED').length
-                });
-            } else if (role === 'EVALUATEE') {
-                const res = await api.get('/me/evaluations');
-                const assignments = res.data.data || [];
-                setStats({
-                    total: assignments.length,
-                    completed: assignments.filter(a => a.status === 'COMPLETED').length,
-                    pending: assignments.filter(a => a.status !== 'COMPLETED').length
-                });
-            }
-        } catch (error) {
-            console.error("Failed to fetch dashboard data", error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [navigate]); // ✅ ต้องมีแค่ navigate เท่านั้น ห้ามใส่ตัวอื่นเพิ่มเด็ดขาด
 
     if (loading) return <div className="p-8 text-center text-slate-500">กำลังโหลดข้อมูล Dashboard...</div>;
 
@@ -73,7 +66,6 @@ const Home = () => {
 
             <h2 className="text-xl font-bold text-slate-800 mt-8 mb-4">ภาพรวมของคุณ (Overview)</h2>
 
-            {/* Dashboard สำหรับ ADMIN */}
             {user?.role === 'ADMIN' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div onClick={() => navigate('/admin/users')} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-6 cursor-pointer hover:shadow-md transition-shadow group">
@@ -97,7 +89,6 @@ const Home = () => {
                 </div>
             )}
 
-            {/* Dashboard สำหรับ EVALUATOR และ EVALUATEE */}
             {(user?.role === 'EVALUATOR' || user?.role === 'EVALUATEE') && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">

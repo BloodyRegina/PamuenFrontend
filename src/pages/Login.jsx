@@ -10,7 +10,6 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 const Login = ({ setAuth }) => {
     const navigate = useNavigate();
-    // Changed from email to empId based on auth.controller.js expecting empId & password
     const [formData, setFormData] = useState({ empId: '', password: '' });
     const [loading, setLoading] = useState(false);
 
@@ -25,11 +24,13 @@ const Login = ({ setAuth }) => {
         try {
             const response = await axios.post(`${API_URL}/auth/login`, formData);
 
-            // The backend returns a unified successResponse wrapper: { success: true, message: "...", data: { token, user } }
             const { token, user } = response.data.data;
 
-            // Save token to browser
+            // บันทึก token ลง browser
             localStorage.setItem('token', token);
+            
+            // ✅ จุดที่แก้ไข: ต้องบันทึกข้อมูล user ลง localStorage ด้วย เพื่อให้หน้า Home นำไปใช้ต่อได้
+            localStorage.setItem('user', JSON.stringify(user));
 
             // Update application auth state
             setAuth(user);
@@ -40,9 +41,9 @@ const Login = ({ setAuth }) => {
                 icon: 'success',
                 confirmButtonColor: '#c084fc'
             });
+            
             navigate('/home');
         } catch (err) {
-            // Use error message directly from the backend's errorResponse wrapper
             const errorMsg = err.response?.data?.message || 'Invalid credentials or server error';
             Swal.fire({
                 title: 'Login Failed',
