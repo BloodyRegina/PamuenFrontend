@@ -63,7 +63,29 @@ const MyEvaluationDetail = () => {
       setUploading(false);
     }
   };
+  const handleDeleteEvidence = async (evidenceId) => {
+    const confirm = await Swal.fire({
+      title: "ยืนยันการลบไฟล์?",
+      text: "ระบบจะลบไฟล์หลักฐานนี้ออกจากระบบ",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ec4899",
+      confirmButtonText: "ลบไฟล์",
+    });
 
+    if (confirm.isConfirmed) {
+      try {
+        setUploading(true);
+        await api.delete(`/me/evidence/${evidenceId}`);
+        Swal.fire("สำเร็จ", "ลบไฟล์หลักฐานเรียบร้อยแล้ว", "success");
+        window.location.reload(); // รีเฟรชหน้าเพื่ออัปเดตข้อมูลล่าสุด
+      } catch (error) {
+        Swal.fire("ล้มเหลว", "ไม่สามารถลบไฟล์ได้", "error");
+      } finally {
+        setUploading(false);
+      }
+    }
+  };
   // --- ฟังก์ชันคำนวณคะแนนตามเอกสาร ---
   const calculateResults = () => {
     let totalEarned = 0;
@@ -188,13 +210,15 @@ const MyEvaluationDetail = () => {
                       </div>
                     </div>
 
-                    <div className="shrink-0">
+                    <div className="shrink-0 flex items-center gap-2">
                       {ind.requireEvidence ? (
+                        // หากมีไฟล์อยู่แล้ว (ดึงจาก evidence ที่เชื่อมกับ assignment หรือ fetch มา)
+                        // ถ้าฝั่ง Frontend ยังไม่ได้ดึง data evidence มาโชว์ คุณสามารถใช้ปุ่ม "อัปโหลดทับ" หรือแจ้งเตือนได้เลย
                         <label
-                          className={`flex items-center justify-center px-4 py-2 border rounded-lg cursor-pointer transition-colors text-sm font-medium ${uploading ? "bg-slate-100 text-slate-400" : "bg-white text-blue-600 border-blue-600 hover:bg-blue-50"}`}
+                          className={`flex items-center justify-center px-4 py-2 border rounded-lg cursor-pointer transition-colors text-sm font-medium ${uploading ? "bg-purple-100 text-purple-400" : "bg-white text-purple-600 border-purple-300 hover:bg-purple-50"}`}
                         >
                           <Upload className="w-4 h-4 mr-2" />
-                          อัปโหลดหลักฐาน
+                          อัปโหลดไฟล์หลักฐาน (PDF/IMG)
                           <input
                             type="file"
                             className="hidden"
@@ -206,7 +230,7 @@ const MyEvaluationDetail = () => {
                           />
                         </label>
                       ) : (
-                        <span className="text-xs text-slate-400 bg-slate-100 px-3 py-1.5 rounded-lg flex items-center">
+                        <span className="text-xs text-purple-400 bg-purple-50 px-3 py-1.5 rounded-lg flex items-center">
                           <FileCheck className="w-3 h-3 mr-1" />{" "}
                           ไม่ต้องแนบหลักฐาน
                         </span>
