@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../utils/axios';
 import Button from '../../components/common/Button';
 import Swal from 'sweetalert2';
-import { Save, ArrowLeft, BarChart3, CheckCircle } from 'lucide-react';
+// เพิ่มนำเข้าไอคอน FileText
+import { Save, ArrowLeft, BarChart3, CheckCircle, FileText } from 'lucide-react';
 
 const AssessmentForm = () => {
     const { assignmentId } = useParams();
@@ -86,9 +87,9 @@ const AssessmentForm = () => {
                 const result = assignment.indicatorResults?.find(r => r.indicatorId === ind.id) || { score: responses[ind.id] };
                 
                 if (result && result.score !== undefined) {
-                    if (ind.indicatorType === 'Scale 1-4') {
+                    if (ind.indicatorType === 'Scale 1-4' || ind.indicatorType === 'SCALE') {
                         totalEarned += (result.score / 4) * ind.weight;
-                    } else if (ind.indicatorType === 'y/n') {
+                    } else if (ind.indicatorType === 'y/n' || ind.indicatorType === 'YES_NO') {
                         totalEarned += result.score * ind.weight;
                     }
                 }
@@ -142,34 +143,53 @@ const AssessmentForm = () => {
                     </div>
                     <div className="p-4 space-y-6">
                         {topic.indicators?.map(ind => {
-                            const hasEvidence = !ind.requireEvidence || assignment?.evaluatee?.evidences?.some(e => e.indicatorId === ind.id);
-                            const isMissingEvidence = ind.requireEvidence && !hasEvidence;
+                            // 🟢 ดึงข้อมูล object ของไฟล์หลักฐานออกมา
+                            const evidence = assignment?.evaluatee?.evidences?.find(e => e.indicatorId === ind.id);
+                            const hasEvidence = !ind.requireEvidence || !!evidence;
+                            const isMissingEvidence = ind.requireEvidence && !evidence;
 
                             return (
                                 <div key={ind.id} className="space-y-3 p-4 border border-slate-50 rounded-xl bg-slate-50/30">
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1">
                                             <label className="text-sm font-medium text-slate-700">{ind.name}</label>
+                                            
                                             {ind.requireEvidence && (
                                                 <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-100 text-rose-800">
                                                     *ต้องมีหลักฐาน
                                                 </span>
                                             )}
+                                            
                                             {isMissingEvidence && !isCompleted && (
                                                 <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
                                                     ⏳ รอผู้รับการประเมินแนบหลักฐาน
                                                 </span>
                                             )}
+
+                                            {/* 🟢 ปุ่มดูไฟล์หลักฐาน (แสดงเฉพาะข้อที่บังคับแนบและมีไฟล์แล้ว) */}
+                                            {ind.requireEvidence && evidence && (
+                                                <div className="mt-2 block">
+                                                    <a
+                                                        href={`${api.defaults.baseURL.replace('/api', '')}/uploads/${evidence.filename}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-600 border border-purple-200 rounded-lg text-xs font-medium hover:bg-purple-100 transition-colors"
+                                                    >
+                                                        <FileText className="w-3 h-3 mr-1.5" />
+                                                        คลิกดูไฟล์หลักฐาน
+                                                    </a>
+                                                </div>
+                                            )}
                                         </div>
-                                        <span className="text-xs text-slate-400 font-medium bg-slate-100 px-2 py-1 rounded">น้ำหนัก: {ind.weight}%</span>
+                                        <span className="text-xs text-slate-400 font-medium bg-slate-100 px-2 py-1 rounded shrink-0">น้ำหนัก: {ind.weight}%</span>
                                     </div>
                                     
-                                    {ind.indicatorType === 'Scale 1-4' ? (
+                                    {ind.indicatorType === 'Scale 1-4' || ind.indicatorType === 'SCALE' ? (
                                         <div className="flex gap-2">
                                             {[1, 2, 3, 4].map(score => (
                                                 <button
                                                     key={score}
-                                                    disabled={isMissingEvidence || isCompleted} // ✅ ล็อกปุ่มถ้าประเมินเสร็จแล้ว
+                                                    disabled={isMissingEvidence || isCompleted} 
                                                     onClick={() => handleScoreChange(ind.id, score)}
                                                     className={`flex-1 py-2 rounded-lg border transition-all font-medium ${
                                                         (isMissingEvidence && !isCompleted)
@@ -177,7 +197,7 @@ const AssessmentForm = () => {
                                                             : responses[ind.id] === score 
                                                                 ? 'bg-purple-600 text-white border-purple-600 shadow-md' 
                                                                 : isCompleted 
-                                                                    ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' // สไตล์ปุ่มตอนอ่านอย่างเดียว
+                                                                    ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
                                                                     : 'bg-white text-slate-500 border-slate-200 hover:border-purple-600 hover:text-purple-600'
                                                     }`}
                                                 >
@@ -190,7 +210,7 @@ const AssessmentForm = () => {
                                             {[ {label: 'ไม่ใช่/ไม่มี', value: 0}, {label: 'ใช่/มี', value: 1} ].map(opt => (
                                                 <button
                                                     key={opt.value}
-                                                    disabled={isMissingEvidence || isCompleted} // ✅ ล็อกปุ่มถ้าประเมินเสร็จแล้ว
+                                                    disabled={isMissingEvidence || isCompleted} 
                                                     onClick={() => handleScoreChange(ind.id, opt.value)}
                                                     className={`flex-1 py-2 rounded-lg border transition-all font-medium ${
                                                         (isMissingEvidence && !isCompleted)
@@ -198,7 +218,7 @@ const AssessmentForm = () => {
                                                             : responses[ind.id] === opt.value 
                                                                 ? 'bg-purple-600 text-white border-purple-600 shadow-md' 
                                                                 : isCompleted 
-                                                                    ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' // สไตล์ปุ่มตอนอ่านอย่างเดียว
+                                                                    ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
                                                                     : 'bg-white text-slate-500 border-slate-200 hover:border-purple-600 hover:text-purple-600'
                                                     }`}
                                                 >
@@ -213,8 +233,7 @@ const AssessmentForm = () => {
                     </div>
                 </div>
             ))}
-
-            {/* ✅ ซ่อนปุ่มบันทึก ถ้าสถานะเป็น COMPLETED แล้ว */}
+            
             {!isCompleted && (
                 <div className="flex justify-end pt-4">
                     <Button onClick={handleSubmit} className="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white">

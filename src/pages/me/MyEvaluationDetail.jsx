@@ -18,7 +18,8 @@ const MyEvaluationDetail = () => {
   const [assignment, setAssignment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [activeTab, setActiveTab] = useState("details"); // 'details' หรือ 'results'
+  const [activeTab, setActiveTab] = useState("details");
+  const [evidences, setEvidences] = useState([]);
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -31,6 +32,12 @@ const MyEvaluationDetail = () => {
           return;
         }
         setAssignment(found);
+
+        // <-- 2. เพิ่มการดึงข้อมูลไฟล์หลักฐานที่เคยอัปโหลดไว้แล้ว
+        const evRes = await api.get("/me/evidence");
+        if (evRes.data && evRes.data.data) {
+          setEvidences(evRes.data.data);
+        }
       } catch (error) {
         Swal.fire("เกิดข้อผิดพลาด", "ไม่สามารถโหลดข้อมูลได้", "error");
       } finally {
@@ -212,23 +219,76 @@ const MyEvaluationDetail = () => {
 
                     <div className="shrink-0 flex items-center gap-2">
                       {ind.requireEvidence ? (
-                        // หากมีไฟล์อยู่แล้ว (ดึงจาก evidence ที่เชื่อมกับ assignment หรือ fetch มา)
-                        // ถ้าฝั่ง Frontend ยังไม่ได้ดึง data evidence มาโชว์ คุณสามารถใช้ปุ่ม "อัปโหลดทับ" หรือแจ้งเตือนได้เลย
-                        <label
-                          className={`flex items-center justify-center px-4 py-2 border rounded-lg cursor-pointer transition-colors text-sm font-medium ${uploading ? "bg-purple-100 text-purple-400" : "bg-white text-purple-600 border-purple-300 hover:bg-purple-50"}`}
-                        >
-                          <Upload className="w-4 h-4 mr-2" />
-                          อัปโหลดไฟล์หลักฐาน (PDF/IMG)
-                          <input
-                            type="file"
-                            className="hidden"
-                            disabled={uploading || isCompleted}
-                            onChange={(e) =>
-                              handleFileUpload(ind.id, e.target.files[0])
-                            }
-                            accept=".pdf,.jpg,.png"
-                          />
-                        </label>
+                        (() => {
+                          // เช็กว่าตัวชี้วัดข้อนี้ มีไฟล์ที่อัปโหลดไว้แล้วหรือไม่
+                          const uploadedFile = evidences?.find(
+                            (e) => e.indicatorId === ind.id,
+                          );
+
+                          if (uploadedFile) {
+                            // 🟢 สร้าง URL สำหรับเปิดไฟล์ (ตัด /api ออกจาก Base URL)
+                            const baseUrl = api.defaults.baseURL.replace(
+                              "/api",
+                              "",
+                            );
+                            const fileUrl = `${baseUrl}/uploads/${uploadedFile.filename}`;
+
+                            // ถ้ามีไฟล์แล้ว -> แสดงปุ่มดูไฟล์ และ ลบไฟล์
+                            return (
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg flex items-center font-medium border border-green-200">
+                                  <FileCheck className="w-4 h-4 mr-2" />
+                                  แนบไฟล์แล้ว
+                                </span>
+
+                                {/* 🟢 เพิ่มปุ่ม "ดูไฟล์" ตรงนี้ */}
+                                <a
+                                  href={fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors flex items-center"
+                                >
+                                  ดูไฟล์แนบ
+                                </a>
+
+                                {!isCompleted && (
+                                  <button
+                                    onClick={() =>
+                                      handleDeleteEvidence(uploadedFile.id)
+                                    }
+                                    disabled={uploading}
+                                    className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
+                                  >
+                                    ลบไฟล์
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          } else {
+                            // ถ้ายังไม่มีไฟล์ -> แสดงปุ่มอัปโหลดแบบเดิม
+                            return (
+                              <label
+                                className={`flex items-center justify-center px-4 py-2 border rounded-lg cursor-pointer transition-colors text-sm font-medium ${
+                                  uploading
+                                    ? "bg-purple-100 text-purple-400"
+                                    : "bg-white text-purple-600 border-purple-300 hover:bg-purple-50"
+                                }`}
+                              >
+                                <Upload className="w-4 h-4 mr-2" />
+                                อัปโหลดไฟล์หลักฐาน
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  disabled={uploading || isCompleted}
+                                  onChange={(e) =>
+                                    handleFileUpload(ind.id, e.target.files[0])
+                                  }
+                                  accept=".pdf,.jpg,.png"
+                                />
+                              </label>
+                            );
+                          }
+                        })()
                       ) : (
                         <span className="text-xs text-purple-400 bg-purple-50 px-3 py-1.5 rounded-lg flex items-center">
                           <FileCheck className="w-3 h-3 mr-1" />{" "}

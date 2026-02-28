@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import api from '../../utils/axios';
 import Table from '../../components/common/Table';
 import Badge from '../../components/common/Badge';
-import Button from '../../components/common/Button';
 import Swal from 'sweetalert2';
 
 const UserManage = () => {
@@ -18,9 +17,9 @@ const UserManage = () => {
             console.error("Failed to fetch users", error);
             Swal.fire({
                 title: 'เกิดข้อผิดพลาด',
-                text: 'ไม่สามารถดึงข้อมูลพนักงานได้',
+                text: 'ไม่สามารถดึงข้อมูลผู้ใช้งานได้',
                 icon: 'error',
-                confirmButtonColor: '#c084fc'
+                confirmButtonColor: '#c084fc' // ใช้สีม่วงอ่อนให้เข้ากับธีม
             });
         } finally {
             setLoading(false);
@@ -31,8 +30,8 @@ const UserManage = () => {
         fetchUsers();
     }, []);
 
-    // กำหนดหัวตาราง
-    const tableHeaders = ["รหัสพนักงาน", "ชื่อ-นามสกุล", "อีเมล", "สิทธิ์", "จัดการ"];
+    // เอาคอลัมน์ "จัดการ" ออก เหลือแค่ข้อมูลพื้นฐาน
+    const tableHeaders = ["รหัสพนักงาน", "ชื่อ-นามสกุล", "อีเมล", "สิทธิ์"];
 
     const getRoleBadgeVariant = (role) => {
         if (role === 'ADMIN') return 'primary';
@@ -41,42 +40,37 @@ const UserManage = () => {
     };
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800">จัดการผู้ใช้งาน</h1>
-                    <p className="text-slate-500 mt-1">รายชื่อพนักงานและสิทธิ์การใช้งานในระบบ</p>
-                </div>
-                <Button onClick={() => Swal.fire('รอก่อนนะ!', 'เดี๋ยวเรามาทำปุ่มเพิ่มพนักงานในสเตปต่อไป', 'info')}>
-                    + เพิ่มผู้ใช้งาน
-                </Button>
+        <div className="space-y-6 max-w-7xl mx-auto pb-12 font-sans">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-fuchsia-100">
+                <h1 className="text-2xl font-bold text-slate-800">รายชื่อผู้ใช้งานระบบ</h1>
+                <p className="text-slate-500 mt-1">แสดงรายชื่อพนักงานและสิทธิ์การเข้าใช้งานทั้งหมด</p>
             </div>
 
-            {loading ? (
-                <div className="p-8 text-center text-slate-500 bg-white rounded-xl shadow-sm border border-slate-100">
-                    กำลังโหลดข้อมูล...
-                </div>
-            ) : (
-                <Table
-                    headers={tableHeaders}
-                    data={users}
-                    renderRow={(user, idx) => (
-                        <tr key={user.id || idx} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-6 py-4 text-sm font-medium text-slate-700">{user.empId}</td>
-                            <td className="px-6 py-4 text-sm text-slate-700">{user.name}</td>
-                            <td className="px-6 py-4 text-sm text-slate-700">{user.email}</td>
-                            <td className="px-6 py-4">
-                                <Badge variant={getRoleBadgeVariant(user.role)}>
-                                    {user.role}
-                                </Badge>
-                            </td>
-                            <td className="px-6 py-4">
-                                <Button variant="outline" size="sm">แก้ไข</Button>
-                            </td>
-                        </tr>
-                    )}
-                />
-            )}
+            <div className="bg-white rounded-2xl shadow-sm border border-fuchsia-100 overflow-hidden">
+                {loading ? (
+                    <div className="p-8 text-center text-slate-500">
+                        กำลังโหลดข้อมูล...
+                    </div>
+                ) : (
+                    <Table
+                        headers={tableHeaders}
+                        headerClassName="bg-fuchsia-50 text-slate-700" // หัวตารางสีชมพูอ่อน
+                        data={users}
+                        renderRow={(user, idx) => (
+                            <tr key={user.id || idx} className="hover:bg-purple-50 transition-colors border-b border-fuchsia-50">
+                                <td className="px-6 py-4 text-sm font-medium text-slate-700">{user.empId}</td>
+                                <td className="px-6 py-4 text-sm text-slate-700">{user.name}</td>
+                                <td className="px-6 py-4 text-sm text-slate-700">{user.email}</td>
+                                <td className="px-6 py-4">
+                                    <Badge variant={getRoleBadgeVariant(user.role)}>
+                                        {user.role}
+                                    </Badge>
+                                </td>
+                            </tr>
+                        )}
+                    />
+                )}
+            </div>
         </div>
     );
 };
