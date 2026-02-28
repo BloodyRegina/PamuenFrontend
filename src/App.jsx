@@ -1,36 +1,45 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BrowserRouter,
   Routes,
   Route,
   Navigate,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
+import Swal from "sweetalert2"; // นำเข้า SweetAlert2
 import MainLayout from "./components/layout/MainLayout";
 
 // Pages
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
+
+// Admin Pages
 import UserManage from "./pages/admin/UserManage";
 import EvaluationList from "./pages/admin/EvaluationList";
 import EvaluationDetail from "./pages/admin/EvaluationDetail";
+
+// Evaluatee Pages
 import MyEvaluations from "./pages/me/MyEvaluations";
-import EvaluatorTasks from "./pages/evaluator/EvaluatorTasks";
-import AssessmentForm from "./pages/evaluator/AssessmentForm";
 import MyEvaluationDetail from "./pages/me/MyEvaluationDetail";
 
-// Private Route Wrapper
+// Evaluator Pages
+import EvaluatorTasks from "./pages/evaluator/EvaluatorTasks";
+import AssessmentForm from "./pages/evaluator/AssessmentForm";
+import EvaluatorPairList from "./pages/evaluator/EvaluatorPairList";
+import EvaluatorResult from "./pages/evaluator/EvaluatorResult";
+
+// Private Route Wrapper (บังคับ Login)
 const PrivateRoute = ({ children, auth }) => {
   const location = useLocation();
   if (!auth) {
-    // Redirect to login but save the attempted URL
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   return children;
 };
 
-// Redirect based on auth state
+// Auth Route (ถ้า Login แล้วให้ไปหน้า Home)
 const AuthRoute = ({ children, auth }) => {
   if (auth) {
     return <Navigate to="/home" replace />;
@@ -38,16 +47,32 @@ const AuthRoute = ({ children, auth }) => {
   return children;
 };
 
-// Admin Route Wrapper
-const AdminRoute = ({ children, auth }) => {
-  if (!auth || auth.role !== "ADMIN") {
-    return <Navigate to="/home" replace />;
+// Role Protected Route Wrapper (ตรวจสิทธิ์พร้อมแจ้งเตือนด้วย SweetAlert2)
+const RoleProtectedRoute = ({ children, auth, allowedRole }) => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (auth && auth.role !== allowedRole) {
+      Swal.fire({
+        icon: "warning",
+        title: "ปฏิเสธการเข้าถึง",
+        text: "คุณไม่มีสิทธิ์เข้าใช้งานหน้านี้",
+        confirmButtonColor: "#dc2626", // ใช้สีแดงให้เข้ากับตีม
+      }).then(() => {
+        navigate("/home", { replace: true });
+      });
+    }
+  }, [auth, allowedRole, navigate]);
+
+  // ซ่อนเนื้อหาระหว่างตรวจสอบ หรือถ้าสิทธิ์ไม่ตรง
+  if (!auth || auth.role !== allowedRole) {
+    return null;
   }
+
   return children;
 };
 
 function App() {
-  // Simple mock auth state for phase 2
   const [auth, setAuth] = useState(() => {
     const savedUser = localStorage.getItem("user");
     return savedUser ? JSON.parse(savedUser) : null;
@@ -55,6 +80,7 @@ function App() {
 
   const handleLogout = () => {
     setAuth(null);
+    localStorage.removeItem("user");
   };
 
   return (
@@ -78,7 +104,7 @@ function App() {
           }
         />
 
-        {/* Private Routes */}
+        {/* Private Routes (ครอบด้วย MainLayout ทั้งหมด) */}
         <Route
           path="/"
           element={
@@ -87,47 +113,91 @@ function App() {
             </PrivateRoute>
           }
         >
-          {/* Default redirect from / to /home */}
+          {/* Default redirect จาก / ไป /home */}
           <Route index element={<Navigate to="/home" replace />} />
           <Route path="home" element={<Home user={auth} />} />
 
-          {/* Admin Routes */}
+          {/* === ADMIN ROUTES === */}
           <Route
             path="admin/users"
             element={
-              <AdminRoute auth={auth}>
+              <RoleProtectedRoute auth={auth} allowedRole="ADMIN">
                 <UserManage />
-              </AdminRoute>
+              </RoleProtectedRoute>
             }
           />
           <Route
             path="admin/evaluations"
             element={
-              <AdminRoute auth={auth}>
+              <RoleProtectedRoute auth={auth} allowedRole="ADMIN">
                 <EvaluationList />
-              </AdminRoute>
+              </RoleProtectedRoute>
             }
           />
           <Route
             path="admin/evaluations/:id"
             element={
-              <AdminRoute auth={auth}>
+              <RoleProtectedRoute auth={auth} allowedRole="ADMIN">
                 <EvaluationDetail />
-              </AdminRoute>
+              </RoleProtectedRoute>
+            }
+          />
+
+          {/* === EVALUATOR ROUTES === */}
+          <Route
+            path="evaluator/evaluations"
+            element={
+              <RoleProtectedRoute auth={auth} allowedRole="EVALUATOR">
+                <EvaluatorTasks />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="evaluator/evaluations/:id"
+            element={
+              <RoleProtectedRoute auth={auth} allowedRole="EVALUATOR">
+                <EvaluatorPairList />
+              </RoleProtectedRoute>
+            }
+          />
+          {/* เปลี่ยนตรงนี้จาก :id เป็น :assignmentId เพื่อให้ตรงกับโค้ดเก่าของคุณ */}
+          <Route
+            path="evaluator/assignment/:assignmentId"
+            element={
+              <RoleProtectedRoute auth={auth} allowedRole="EVALUATOR">
+                <AssessmentForm />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="evaluator/assignment/:assignmentId/result"
+            element={
+              <RoleProtectedRoute auth={auth} allowedRole="EVALUATOR">
+                <EvaluatorResult />
+              </RoleProtectedRoute>
+            }
+          />
+
+          {/* === EVALUATEE ROUTES === */}
+          <Route
+            path="me/evaluations"
+            element={
+              <RoleProtectedRoute auth={auth} allowedRole="EVALUATEE">
+                <MyEvaluations />
+              </RoleProtectedRoute>
+            }
+          />
+          <Route
+            path="me/evaluations/:id"
+            element={
+              <RoleProtectedRoute auth={auth} allowedRole="EVALUATEE">
+                <MyEvaluationDetail />
+              </RoleProtectedRoute>
             }
           />
         </Route>
-        <Route path="/me/evaluations" element={<MyEvaluations />} />
-        <Route path="/evaluator/evaluations" element={<EvaluatorTasks />} />
-        <Route
-          path="/evaluator/assess/:assignmentId"
-          element={<AssessmentForm />}
-        />
-        <Route
-          path="/me/evaluations/:assignmentId"
-          element={<MyEvaluationDetail />}
-        />
-        {/* Catch all */}
+
+        {/* Catch all (หน้าไหนไม่ตรงเงื่อนไขเลย) */}
         <Route
           path="*"
           element={<Navigate to={auth ? "/home" : "/login"} replace />}
