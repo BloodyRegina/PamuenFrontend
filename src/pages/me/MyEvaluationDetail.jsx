@@ -81,7 +81,7 @@ const MyEvaluationDetail = () => {
           if (ind.indicatorType === "Scale 1-4") {
             // สูตร: (คะแนน 1-4 / 4) * น้ำหนัก
             totalEarned += (result.score / 4) * ind.weight;
-          } else if (ind.indicatorType === "YES_NO") {
+          } else if (ind.indicatorType === "y/n") {
             // สูตร: (1 หรือ 0) * น้ำหนัก
             totalEarned += result.score * ind.weight;
           }
