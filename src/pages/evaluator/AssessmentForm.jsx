@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../utils/axios';
 import Button from '../../components/common/Button';
 import Swal from 'sweetalert2';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, BarChart3, CheckCircle } from 'lucide-react';
 
 const AssessmentForm = () => {
     const { assignmentId } = useParams();
@@ -39,7 +39,6 @@ const AssessmentForm = () => {
 
     const handleSubmit = async () => {
         try {
-            // นับจำนวนข้อที่ "พร้อมให้คะแนน" (ไม่ติดล็อก)
             let scorableIndicators = 0;
             assignment.evaluation?.topics?.forEach(t => {
                 t.indicators?.forEach(ind => {
@@ -76,18 +75,64 @@ const AssessmentForm = () => {
         }
     };
 
+    // --- ฟังก์ชันคำนวณคะแนนรวม ---
+    const calculateResults = () => {
+        let totalEarned = 0;
+        let totalWeight = 0;
+
+        assignment?.evaluation?.topics?.forEach(topic => {
+            topic.indicators?.forEach(ind => {
+                totalWeight += ind.weight;
+                const result = assignment.indicatorResults?.find(r => r.indicatorId === ind.id) || { score: responses[ind.id] };
+                
+                if (result && result.score !== undefined) {
+                    if (ind.indicatorType === 'Scale 1-4') {
+                        totalEarned += (result.score / 4) * ind.weight;
+                    } else if (ind.indicatorType === 'y/n') {
+                        totalEarned += result.score * ind.weight;
+                    }
+                }
+            });
+        });
+
+        return { earned: totalEarned.toFixed(2), total: totalWeight };
+    };
+
     if (loading) return <div className="p-8 text-center">กำลังโหลดแบบประเมิน...</div>;
+
+    const isCompleted = assignment?.status === 'COMPLETED';
+    const scoreData = isCompleted ? calculateResults() : null;
 
     return (
         <div className="p-6 max-w-4xl mx-auto space-y-6">
             <button onClick={() => navigate(-1)} className="flex items-center text-slate-500 hover:text-purple-600 transition-colors">
-                <ArrowLeft className="w-4 h-4 mr-1" /> กลับ
+                <ArrowLeft className="w-4 h-4 mr-1" /> กลับไปหน้ารายการ
             </button>
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                <h1 className="text-2xl font-bold text-slate-800">แบบประเมินผลการปฏิบัติงาน</h1>
-                <p className="text-slate-500 mt-1">ผู้ถูกประเมิน: <span className="text-purple-600 font-semibold">{assignment?.evaluatee?.name}</span></p>
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">แบบประเมินผลการปฏิบัติงาน</h1>
+                    <p className="text-slate-500 mt-1">ผู้ถูกประเมิน: <span className="text-purple-600 font-semibold">{assignment?.evaluatee?.name}</span></p>
+                </div>
+                {isCompleted && (
+                    <div className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl flex items-center font-semibold">
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        ประเมินเสร็จสิ้น
+                    </div>
+                )}
             </div>
+
+            {/* แสดงการ์ดผลคะแนน ถ้าประเมินเสร็จแล้ว */}
+            {isCompleted && (
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-purple-100 text-center animate-fadeIn">
+                    <div className="flex justify-center mb-4 text-purple-600"><BarChart3 className="w-12 h-12" /></div>
+                    <h2 className="text-lg font-bold text-slate-600 mb-2">สรุปผลคะแนนที่ประเมิน</h2>
+                    <div className="text-5xl font-black text-purple-600 mb-4">{scoreData.earned} <span className="text-2xl text-slate-400">/ {scoreData.total}%</span></div>
+                    <div className="w-full max-w-md mx-auto bg-slate-100 rounded-full h-4 mb-2 overflow-hidden">
+                        <div className="bg-purple-600 h-4 rounded-full transition-all duration-1000" style={{ width: `${(scoreData.earned / scoreData.total) * 100}%` }}></div>
+                    </div>
+                </div>
+            )}
 
             {assignment?.evaluation?.topics?.map(topic => (
                 <div key={topic.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -97,7 +142,6 @@ const AssessmentForm = () => {
                     </div>
                     <div className="p-4 space-y-6">
                         {topic.indicators?.map(ind => {
-                            // ✅ ลอจิกสำคัญ: เช็กว่าข้อนี้บังคับแนบไฟล์ไหม แล้วผู้ถูกประเมินอัปโหลดไฟล์มาหรือยัง?
                             const hasEvidence = !ind.requireEvidence || assignment?.evaluatee?.evidences?.some(e => e.indicatorId === ind.id);
                             const isMissingEvidence = ind.requireEvidence && !hasEvidence;
 
@@ -111,14 +155,9 @@ const AssessmentForm = () => {
                                                     *ต้องมีหลักฐาน
                                                 </span>
                                             )}
-                                            {isMissingEvidence && (
+                                            {isMissingEvidence && !isCompleted && (
                                                 <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
                                                     ⏳ รอผู้รับการประเมินแนบหลักฐาน
-                                                </span>
-                                            )}
-                                            {ind.requireEvidence && hasEvidence && (
-                                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">
-                                                    ✓ มีหลักฐานแล้ว
                                                 </span>
                                             )}
                                         </div>
@@ -130,14 +169,16 @@ const AssessmentForm = () => {
                                             {[1, 2, 3, 4].map(score => (
                                                 <button
                                                     key={score}
-                                                    disabled={isMissingEvidence}
+                                                    disabled={isMissingEvidence || isCompleted} // ✅ ล็อกปุ่มถ้าประเมินเสร็จแล้ว
                                                     onClick={() => handleScoreChange(ind.id, score)}
                                                     className={`flex-1 py-2 rounded-lg border transition-all font-medium ${
-                                                        isMissingEvidence 
+                                                        (isMissingEvidence && !isCompleted)
                                                             ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed'
                                                             : responses[ind.id] === score 
                                                                 ? 'bg-purple-600 text-white border-purple-600 shadow-md' 
-                                                                : 'bg-white text-slate-500 border-slate-200 hover:border-purple-600 hover:text-purple-600'
+                                                                : isCompleted 
+                                                                    ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' // สไตล์ปุ่มตอนอ่านอย่างเดียว
+                                                                    : 'bg-white text-slate-500 border-slate-200 hover:border-purple-600 hover:text-purple-600'
                                                     }`}
                                                 >
                                                     ระดับ {score}
@@ -149,14 +190,16 @@ const AssessmentForm = () => {
                                             {[ {label: 'ไม่ใช่/ไม่มี', value: 0}, {label: 'ใช่/มี', value: 1} ].map(opt => (
                                                 <button
                                                     key={opt.value}
-                                                    disabled={isMissingEvidence}
+                                                    disabled={isMissingEvidence || isCompleted} // ✅ ล็อกปุ่มถ้าประเมินเสร็จแล้ว
                                                     onClick={() => handleScoreChange(ind.id, opt.value)}
                                                     className={`flex-1 py-2 rounded-lg border transition-all font-medium ${
-                                                        isMissingEvidence 
+                                                        (isMissingEvidence && !isCompleted)
                                                             ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed'
                                                             : responses[ind.id] === opt.value 
                                                                 ? 'bg-purple-600 text-white border-purple-600 shadow-md' 
-                                                                : 'bg-white text-slate-500 border-slate-200 hover:border-purple-600 hover:text-purple-600'
+                                                                : isCompleted 
+                                                                    ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' // สไตล์ปุ่มตอนอ่านอย่างเดียว
+                                                                    : 'bg-white text-slate-500 border-slate-200 hover:border-purple-600 hover:text-purple-600'
                                                     }`}
                                                 >
                                                     {opt.label}
@@ -171,11 +214,14 @@ const AssessmentForm = () => {
                 </div>
             ))}
 
-            <div className="flex justify-end pt-4">
-                <Button onClick={handleSubmit} className="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white">
-                    <Save className="w-5 h-5 mr-2" /> บันทึกผลการประเมิน
-                </Button>
-            </div>
+            {/* ✅ ซ่อนปุ่มบันทึก ถ้าสถานะเป็น COMPLETED แล้ว */}
+            {!isCompleted && (
+                <div className="flex justify-end pt-4">
+                    <Button onClick={handleSubmit} className="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white">
+                        <Save className="w-5 h-5 mr-2" /> บันทึกผลการประเมิน
+                    </Button>
+                </div>
+            )}
         </div>
     );
 };
