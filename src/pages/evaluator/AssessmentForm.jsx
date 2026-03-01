@@ -87,9 +87,9 @@ const AssessmentForm = () => {
                 const result = assignment.indicatorResults?.find(r => r.indicatorId === ind.id) || { score: responses[ind.id] };
                 
                 if (result && result.score !== undefined) {
-                    if (ind.indicatorType === 'Scale 1-4' || ind.indicatorType === 'SCALE') {
+                    if (ind.indicatorType === 'SCALE_1_4') {
                         totalEarned += (result.score / 4) * ind.weight;
-                    } else if (ind.indicatorType === 'y/n' || ind.indicatorType === 'YES_NO') {
+                    } else if (ind.indicatorType === 'YES_NO') {
                         totalEarned += result.score * ind.weight;
                     }
                 }
@@ -184,7 +184,7 @@ const AssessmentForm = () => {
                                         <span className="text-xs text-slate-400 font-medium bg-slate-100 px-2 py-1 rounded shrink-0">น้ำหนัก: {ind.weight}%</span>
                                     </div>
                                     
-                                    {ind.indicatorType === 'Scale 1-4' || ind.indicatorType === 'SCALE' ? (
+                                    {ind.indicatorType === 'SCALE_1_4' ? (
                                         <div className="flex gap-2">
                                             {[1, 2, 3, 4].map(score => (
                                                 <button

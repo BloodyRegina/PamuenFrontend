@@ -20,6 +20,7 @@ const MyEvaluationDetail = () => {
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const [evidences, setEvidences] = useState([]);
+  const [reportData, setReportData] = useState(null);
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -61,11 +62,20 @@ const MyEvaluationDetail = () => {
       Swal.fire("สำเร็จ", "อัปโหลดไฟล์หลักฐานเรียบร้อยแล้ว", "success");
       window.location.reload();
     } catch (error) {
-      Swal.fire(
-        "ล้มเหลว",
-        error.response?.data?.message || "ไม่สามารถอัปโหลดไฟล์ได้",
-        "error",
-      );
+      const status = error.response?.status;
+      if (status === 409) {
+        Swal.fire("ล้มเหลว", "คุณได้แนบหลักฐานสำหรับตัวชี้วัดนี้ไปแล้ว", "error");
+      } else if (status === 413) {
+        Swal.fire("ล้มเหลว", "ขนาดไฟล์เกิน 10MB", "error");
+      } else if (status === 415) {
+        Swal.fire("ล้มเหลว", "ไม่อนุญาตให้อัปโหลดไฟล์ .exe", "error");
+      } else {
+        Swal.fire(
+          "ล้มเหลว",
+          error.response?.data?.message || "ไม่สามารถอัปโหลดไฟล์ได้",
+          "error",
+        );
+      }
     } finally {
       setUploading(false);
     }
@@ -93,33 +103,34 @@ const MyEvaluationDetail = () => {
       }
     }
   };
-  // --- ฟังก์ชันคำนวณคะแนนตามเอกสาร ---
-  const calculateResults = () => {
-    let totalEarned = 0;
-    let totalWeight = 0;
-
-    assignment?.evaluation?.topics?.forEach((topic) => {
-      topic.indicators?.forEach((ind) => {
-        totalWeight += ind.weight;
-        // หาคะแนนที่ Evaluator ให้ไว้ใน Database
-        const result = assignment.indicatorResults?.find(
-          (r) => r.indicatorId === ind.id,
-        );
-
-        if (result) {
-          if (ind.indicatorType === "Scale 1-4") {
-            // สูตร: (คะแนน 1-4 / 4) * น้ำหนัก
-            totalEarned += (result.score / 4) * ind.weight;
-          } else if (ind.indicatorType === "y/n") {
-            // สูตร: (1 หรือ 0) * น้ำหนัก
-            totalEarned += result.score * ind.weight;
-          }
-        }
-      });
-    });
-
-    return { earned: totalEarned.toFixed(2), total: totalWeight };
+  // --- ฟังก์ชันดึงรายงานจาก Backend ---
+  const fetchReport = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get(`/reports/evaluation/${assignment.evaluationId}/result`);
+      // Since it's EVALUATEE, filteredAssignments contains only 1 assignment
+      const data = res.data.data;
+      if (data && data.length > 0) {
+        setReportData(data[0]);
+      }
+    } catch (error) {
+      if (error.response?.status === 403) {
+        Swal.fire("ยังไม่สามารถดูได้", "การประเมินยังไม่เสร็จสมบูรณ์ ยังไม่สามารถดูผลคะแนนได้", "info");
+        setActiveTab("details");
+      } else {
+        Swal.fire("เกิดข้อผิดพลาด", "ไม่สามารถดึงข้อมูลผลการประเมินได้", "error");
+        setActiveTab("details");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    if (activeTab === "results" && assignment && assignment.status === "COMPLETED") {
+      fetchReport();
+    }
+  }, [activeTab]);
 
   if (loading)
     return (
@@ -128,9 +139,6 @@ const MyEvaluationDetail = () => {
   if (!assignment) return null;
 
   const isCompleted = assignment.status === "COMPLETED"; // เช็กว่าประเมินเสร็จหรือยัง
-  const scoreData = isCompleted
-    ? calculateResults()
-    : { earned: 0, total: 100 };
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -171,13 +179,15 @@ const MyEvaluationDetail = () => {
         </button>
         <button
           onClick={() => {
-            if (isCompleted) setActiveTab("results");
-            else
+            if (isCompleted) { 
+              setActiveTab("results");
+            } else {
               Swal.fire(
                 "ยังไม่สามารถดูได้",
-                'ผู้ประเมินยังให้คะแนนไม่ครบ กรุณารอจนกว่าสถานะจะเป็น "ประเมินเสร็จสิ้นแล้ว"',
+                'การประเมินยังไม่เสร็จสมบูรณ์ ยังไม่สามารถดูผลคะแนนได้',
                 "info",
               );
+            }
           }}
           className={`flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "results" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"} ${!isCompleted && "opacity-50 cursor-not-allowed"}`}
         >
@@ -211,7 +221,7 @@ const MyEvaluationDetail = () => {
                       </div>
                       <div className="text-xs text-slate-500 mt-1">
                         ค่าน้ำหนัก: {ind.weight}% | ประเภท:{" "}
-                        {ind.indicatorType === "Scale 1-4"
+                        {ind.indicatorType === "SCALE_1_4"
                           ? "ระดับ 1-4"
                           : "ใช่/ไม่ใช่"}
                       </div>
@@ -305,16 +315,16 @@ const MyEvaluationDetail = () => {
       )}
 
       {/* แท็บ 2: ผลการประเมิน (โชว์คะแนนรวม + Progress Bar) */}
-      {activeTab === "results" && isCompleted && (
+      {activeTab === "results" && isCompleted && reportData && (
         <div className="space-y-6 animate-fadeIn">
           <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center">
             <h2 className="text-lg font-bold text-slate-600 mb-2">
               คะแนนการประเมินของคุณ
             </h2>
             <div className="text-5xl font-black text-blue-600 mb-4">
-              {scoreData.earned}{" "}
+              {reportData.totalAdjustedScore}{" "}
               <span className="text-2xl text-slate-400">
-                / {scoreData.total}%
+                / 100%
               </span>
             </div>
 
@@ -323,7 +333,7 @@ const MyEvaluationDetail = () => {
               <div
                 className="bg-blue-600 h-4 rounded-full transition-all duration-1000"
                 style={{
-                  width: `${(scoreData.earned / scoreData.total) * 100}%`,
+                  width: `${reportData.totalAdjustedScore}%`,
                 }}
               ></div>
             </div>
@@ -338,40 +348,42 @@ const MyEvaluationDetail = () => {
               รายละเอียดคะแนนรายข้อ
             </div>
             <div className="p-4 space-y-4">
-              {assignment.evaluation?.topics?.map((topic) => (
-                <div key={topic.id} className="space-y-2">
-                  <h4 className="font-semibold text-slate-700 border-b pb-1">
-                    {topic.name}
-                  </h4>
-                  {topic.indicators?.map((ind) => {
-                    const result = assignment.indicatorResults?.find(
-                      (r) => r.indicatorId === ind.id,
-                    );
-                    const earnedPoints =
-                      ind.indicatorType === "Scale 1-4"
-                        ? ((result?.score || 0) / 4) * ind.weight
-                        : (result?.score || 0) * ind.weight;
-                    return (
-                      <div
-                        key={ind.id}
-                        className="flex justify-between items-center text-sm py-2 px-2 hover:bg-slate-50 rounded"
-                      >
-                        <div className="text-slate-600 flex-1 pr-4">
-                          {ind.name}
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-slate-800">
-                            {earnedPoints.toFixed(2)} %
+              {reportData.results && (() => {
+                // Group results by topic
+                const topicsMap = {};
+                reportData.results.forEach(res => {
+                  if(!topicsMap[res.topicName]) topicsMap[res.topicName] = [];
+                  topicsMap[res.topicName].push(res);
+                });
+                
+                return Object.keys(topicsMap).map(topicName => (
+                  <div key={topicName} className="space-y-2">
+                    <h4 className="font-semibold text-slate-700 border-b pb-1">
+                      {topicName}
+                    </h4>
+                    {topicsMap[topicName].map((ind) => {
+                      return (
+                        <div
+                          key={ind.id}
+                          className="flex justify-between items-center text-sm py-2 px-2 hover:bg-slate-50 rounded"
+                        >
+                          <div className="text-slate-600 flex-1 pr-4">
+                            {ind.indicatorName}
                           </div>
-                          <div className="text-xs text-slate-400">
-                            (จาก {ind.weight}%)
+                          <div className="text-right">
+                            <div className="font-semibold text-slate-800">
+                              {ind.adjustedScore.toFixed(2)} %
+                            </div>
+                            <div className="text-xs text-slate-400">
+                              (จาก {ind.weight}%)
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+                      );
+                    })}
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         </div>

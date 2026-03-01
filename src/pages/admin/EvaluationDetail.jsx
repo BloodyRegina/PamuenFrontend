@@ -30,6 +30,7 @@ const EvaluationDetail = () => {
   const [topics, setTopics] = useState([]);
   const [expandedTopics, setExpandedTopics] = useState({});
   const [assignments, setAssignments] = useState([]);
+  const [reportData, setReportData] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -41,10 +42,8 @@ const EvaluationDetail = () => {
 
   const [topicForm, setTopicForm] = useState({ id: null, name: "", description: "" });
   const [indicatorForm, setIndicatorForm] = useState({
-    id: null,
-    name: "",
     description: "",
-    indicatorType: "Scale 1-4",
+    indicatorType: "SCALE_1_4",
     requireEvidence: false,
     weight: "",
   });
@@ -116,8 +115,23 @@ const EvaluationDetail = () => {
   useEffect(() => {
     if (activeTab === "assignments") {
       loadUsersForAssignments();
+    } else if (activeTab === "results") {
+      loadReportsForResults();
     }
   }, [activeTab]);
+
+  const loadReportsForResults = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get(`/reports/evaluation/${id}/result`);
+      setReportData(res.data.data || []);
+    } catch (e) {
+      console.error(e);
+      Swal.fire("ข้อผิดพลาด", "ไม่สามารถดึงข้อมูลรายงานได้", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleTopic = (topicId) => {
     setExpandedTopics((prev) => ({ ...prev, [topicId]: !prev[topicId] }));
@@ -151,7 +165,7 @@ const EvaluationDetail = () => {
         id: null,
         name: "",
         description: "",
-        indicatorType: "Scale 1-4",
+        indicatorType: "SCALE_1_4",
         requireEvidence: false,
         weight: "",
       });
@@ -266,7 +280,11 @@ const EvaluationDetail = () => {
       closeModal();
       loadData();
     } catch (err) {
-      Swal.fire("ข้อผิดพลาด", err.response?.data?.message || "ไม่สามารถจับคู่ได้", "error");
+      if (err.response?.status === 409) {
+        Swal.fire("ไม่สามารถจับคู่ได้", "ไม่สามารถมอบหมายได้ เนื่องจากมีการมอบหมายผู้ประเมินรายนี้ให้บุคลากรคนนี้ไปแล้ว", "error");
+      } else {
+        Swal.fire("ข้อผิดพลาด", err.response?.data?.message || "ไม่สามารถจับคู่ได้", "error");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -396,7 +414,7 @@ const EvaluationDetail = () => {
                                 <span className="text-xs text-purple-400 mt-1 pl-6">{ind.description}</span>
                               </div>
                               <div className="flex items-center gap-3 mt-2 sm:mt-0 text-xs shrink-0 pl-6 sm:pl-0">
-                                <span className="px-2 py-1 bg-purple-50 rounded text-purple-600">Type: {ind.indicatorType}</span>
+                                <span className="px-2 py-1 bg-purple-50 rounded text-purple-600">Type: {ind.indicatorType === "SCALE_1_4" ? "ระดับ (1-4)" : "ใช่/ไม่ใช่"}</span>
                                 <span className="px-2 py-1 bg-purple-50 rounded text-purple-600">Weight: {ind.weight}%</span>
                                 {ind.requireEvidence && <span className="text-pink-500 bg-pink-50 px-2 py-1 rounded flex items-center"><FileText className="w-3 h-3 mr-1" /> Evidence</span>}
                                 <button onClick={() => openInlineIndicatorForm(topic.id, ind)} className="text-purple-400 hover:text-purple-600"><Edit className="w-4 h-4" /></button>
@@ -420,8 +438,8 @@ const EvaluationDetail = () => {
                               <div className="flex flex-col gap-1 w-full">
                                 <label className="text-sm font-medium text-purple-700">ประเภท <span className="text-pink-500">*</span></label>
                                 <select required className="px-4 py-2 border rounded-lg" value={indicatorForm.indicatorType} onChange={(e) => setIndicatorForm({ ...indicatorForm, indicatorType: e.target.value })}>
-                                  <option value="Scale 1-4">ระดับ (1-4)</option>
-                                  <option value="y/n">ใช่/ไม่ใช่</option>
+                                  <option value="SCALE_1_4">ระดับ (1-4)</option>
+                                  <option value="YES_NO">ใช่/ไม่ใช่</option>
                                 </select>
                               </div>
                               <InputField label="น้ำหนัก (%)" type="number" min="0" max="100" value={indicatorForm.weight} onChange={(e) => setIndicatorForm({ ...indicatorForm, weight: e.target.value })} required />
@@ -497,45 +515,20 @@ const EvaluationDetail = () => {
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-purple-100 overflow-hidden">
-            {assignments.length === 0 ? (
+            {reportData.length === 0 ? (
               <div className="p-8 text-center text-purple-400 italic">
-                ยังไม่มีข้อมูลการจับคู่ประเมิน
+                ยังไม่มีข้อมูลผลการประเมินที่พร้อมแสดง
               </div>
             ) : (
               <Table
                 headers={["ผู้ถูกประเมิน", "ผู้ประเมิน", "สถานะ", "คะแนนรวม (%)"]}
                 headerClassName="bg-purple-50 text-purple-800"
-                data={assignments}
+                data={reportData}
                 renderRow={(assignment, idx) => {
-                  // --- ฟังก์ชันคำนวณคะแนนตามค่าน้ำหนักตัวชี้วัด ---
-                  let totalEarned = 0;
-                  let totalWeight = 0;
-
-                  topics.forEach((topic) => {
-                    topic.indicators?.forEach((ind) => {
-                      totalWeight += ind.weight;
-                      // หาคะแนนที่ Evaluator ให้ไว้ใน Database
-                      const result = assignment.indicatorResults?.find(
-                        (r) => r.indicatorId === ind.id
-                      );
-
-                      if (result) {
-                        // รองรับทั้งชื่อ Type แบบเก่าและแบบใหม่
-                        if (ind.indicatorType === "Scale 1-4") {
-                          // สูตร: (คะแนน 1-4 / 4) * น้ำหนัก
-                          totalEarned += (result.score / 4) * ind.weight;
-                        } else if (ind.indicatorType === "y/n") {
-                          // สูตร: (1 หรือ 0) * น้ำหนัก
-                          totalEarned += result.score * ind.weight;
-                        }
-                      }
-                    });
-                  });
-
                   const isCompleted = assignment.status === "COMPLETED";
 
                   return (
-                    <tr key={assignment.id || idx} className="hover:bg-purple-50/50 border-b border-purple-50 transition-colors">
+                    <tr key={assignment.assignmentId || idx} className="hover:bg-purple-50/50 border-b border-purple-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="text-sm font-bold text-purple-900">
                           {assignment.evaluatee?.name || "Unknown"}
@@ -557,7 +550,7 @@ const EvaluationDetail = () => {
                       <td className="px-6 py-4">
                         {isCompleted ? (
                           <div className="text-sm font-black text-purple-700 bg-purple-100 inline-block px-3 py-1 rounded-md">
-                            {totalEarned.toFixed(2)} <span className="text-xs text-purple-500 font-medium">/ {totalWeight}%</span>
+                            {assignment.totalAdjustedScore.toFixed(2)} <span className="text-xs text-purple-500 font-medium">/ 100%</span>
                           </div>
                         ) : (
                           <div className="text-sm font-medium text-slate-400">
