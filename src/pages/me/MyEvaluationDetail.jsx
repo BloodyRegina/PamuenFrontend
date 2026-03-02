@@ -11,6 +11,7 @@ import {
   BarChart3,
   ListTodo,
 } from "lucide-react";
+import IndicatorTypeBadge from "../../components/common/IndicatorTypeBadge";
 
 const MyEvaluationDetail = () => {
   const { assignmentId } = useParams();
@@ -219,11 +220,9 @@ const MyEvaluationDetail = () => {
                       <div className="font-medium text-slate-700">
                         {ind.name}
                       </div>
-                      <div className="text-xs text-slate-500 mt-1">
-                        ค่าน้ำหนัก: {ind.weight}% | ประเภท:{" "}
-                        {ind.indicatorType === "SCALE_1_4"
-                          ? "ระดับ 1-4"
-                          : "ใช่/ไม่ใช่"}
+                      <div className="text-xs text-slate-500 mt-2 flex items-center gap-2">
+                        <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded">น้ำหนัก: {ind.weight}%</span>
+                        <IndicatorTypeBadge type={ind.indicatorType} />
                       </div>
                     </div>
 

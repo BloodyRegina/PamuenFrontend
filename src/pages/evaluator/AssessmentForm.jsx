@@ -5,6 +5,7 @@ import Button from '../../components/common/Button';
 import Swal from 'sweetalert2';
 // เพิ่มนำเข้าไอคอน FileText
 import { Save, ArrowLeft, BarChart3, CheckCircle, FileText } from 'lucide-react';
+import IndicatorTypeBadge from '../../components/common/IndicatorTypeBadge';
 
 const AssessmentForm = () => {
     const { assignmentId } = useParams();
@@ -12,6 +13,7 @@ const AssessmentForm = () => {
     const [loading, setLoading] = useState(true);
     const [assignment, setAssignment] = useState(null);
     const [responses, setResponses] = useState({}); 
+    const [reportData, setReportData] = useState(null);
 
     useEffect(() => {
         const fetchDetail = async () => {
@@ -76,33 +78,27 @@ const AssessmentForm = () => {
         }
     };
 
-    // --- ฟังก์ชันคำนวณคะแนนรวม ---
-    const calculateResults = () => {
-        let totalEarned = 0;
-        let totalWeight = 0;
-
-        assignment?.evaluation?.topics?.forEach(topic => {
-            topic.indicators?.forEach(ind => {
-                totalWeight += ind.weight;
-                const result = assignment.indicatorResults?.find(r => r.indicatorId === ind.id) || { score: responses[ind.id] };
-                
-                if (result && result.score !== undefined) {
-                    if (ind.indicatorType === 'SCALE_1_4') {
-                        totalEarned += (result.score / 4) * ind.weight;
-                    } else if (ind.indicatorType === 'YES_NO') {
-                        totalEarned += result.score * ind.weight;
+    useEffect(() => {
+        if (assignment && assignment.status === 'COMPLETED') {
+            const fetchReport = async () => {
+                try {
+                    const res = await api.get(`/reports/evaluation/${assignment.evaluationId}/result`);
+                    const data = res.data.data;
+                    const report = data.find(d => d.assignmentId === assignment.id);
+                    if (report) {
+                        setReportData(report);
                     }
+                } catch (error) {
+                    console.error("Failed to fetch report:", error);
                 }
-            });
-        });
-
-        return { earned: totalEarned.toFixed(2), total: totalWeight };
-    };
+            };
+            fetchReport();
+        }
+    }, [assignment]);
 
     if (loading) return <div className="p-8 text-center">กำลังโหลดแบบประเมิน...</div>;
 
     const isCompleted = assignment?.status === 'COMPLETED';
-    const scoreData = isCompleted ? calculateResults() : null;
 
     return (
         <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -124,13 +120,13 @@ const AssessmentForm = () => {
             </div>
 
             {/* แสดงการ์ดผลคะแนน ถ้าประเมินเสร็จแล้ว */}
-            {isCompleted && (
+            {isCompleted && reportData && (
                 <div className="bg-white p-8 rounded-2xl shadow-sm border border-purple-100 text-center animate-fadeIn">
                     <div className="flex justify-center mb-4 text-purple-600"><BarChart3 className="w-12 h-12" /></div>
                     <h2 className="text-lg font-bold text-slate-600 mb-2">สรุปผลคะแนนที่ประเมิน</h2>
-                    <div className="text-5xl font-black text-purple-600 mb-4">{scoreData.earned} <span className="text-2xl text-slate-400">/ {scoreData.total}%</span></div>
+                    <div className="text-5xl font-black text-purple-600 mb-4">{reportData.totalAdjustedScore} <span className="text-2xl text-slate-400">/ 100%</span></div>
                     <div className="w-full max-w-md mx-auto bg-slate-100 rounded-full h-4 mb-2 overflow-hidden">
-                        <div className="bg-purple-600 h-4 rounded-full transition-all duration-1000" style={{ width: `${(scoreData.earned / scoreData.total) * 100}%` }}></div>
+                        <div className="bg-purple-600 h-4 rounded-full transition-all duration-1000" style={{ width: `${reportData.totalAdjustedScore}%` }}></div>
                     </div>
                 </div>
             )}
@@ -181,7 +177,10 @@ const AssessmentForm = () => {
                                                 </div>
                                             )}
                                         </div>
-                                        <span className="text-xs text-slate-400 font-medium bg-slate-100 px-2 py-1 rounded shrink-0">น้ำหนัก: {ind.weight}%</span>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <IndicatorTypeBadge type={ind.indicatorType} />
+                                            <span className="text-xs text-slate-400 font-medium bg-slate-100 px-2 py-1 rounded">น้ำหนัก: {ind.weight}%</span>
+                                        </div>
                                     </div>
                                     
                                     {ind.indicatorType === 'SCALE_1_4' ? (

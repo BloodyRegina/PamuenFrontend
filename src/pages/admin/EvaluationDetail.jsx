@@ -20,6 +20,7 @@ import Table from "../../components/common/Table";
 import Badge from "../../components/common/Badge";
 import Button from "../../components/common/Button";
 import InputField from "../../components/common/InputField";
+import IndicatorTypeBadge from "../../components/common/IndicatorTypeBadge";
 
 const EvaluationDetail = () => {
   const { id } = useParams();
@@ -414,7 +415,7 @@ const EvaluationDetail = () => {
                                 <span className="text-xs text-purple-400 mt-1 pl-6">{ind.description}</span>
                               </div>
                               <div className="flex items-center gap-3 mt-2 sm:mt-0 text-xs shrink-0 pl-6 sm:pl-0">
-                                <span className="px-2 py-1 bg-purple-50 rounded text-purple-600">Type: {ind.indicatorType === "SCALE_1_4" ? "ระดับ (1-4)" : "ใช่/ไม่ใช่"}</span>
+                                <IndicatorTypeBadge type={ind.indicatorType} />
                                 <span className="px-2 py-1 bg-purple-50 rounded text-purple-600">Weight: {ind.weight}%</span>
                                 {ind.requireEvidence && <span className="text-pink-500 bg-pink-50 px-2 py-1 rounded flex items-center"><FileText className="w-3 h-3 mr-1" /> Evidence</span>}
                                 <button onClick={() => openInlineIndicatorForm(topic.id, ind)} className="text-purple-400 hover:text-purple-600"><Edit className="w-4 h-4" /></button>
