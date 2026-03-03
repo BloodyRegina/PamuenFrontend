@@ -590,7 +590,7 @@ const EvaluationDetail = () => {
                 <form id="assignmentForm" onSubmit={handleAssignmentSubmit} className="space-y-4">
                   <select required className="px-4 py-2 w-full border rounded-lg" value={assignmentForm.evaluatorId} onChange={(e) => setAssignmentForm({ ...assignmentForm, evaluatorId: e.target.value })}>
                     <option value="" disabled>เลือกผู้ประเมิน...</option>
-                    {allUsers.filter((u) => u.role === "ADMIN" || u.role === "EVALUATOR").map((u) => (<option key={u.id} value={u.id}>{u.name}</option>))}
+                    {allUsers.filter((u) => u.role === "EVALUATOR").map((u) => (<option key={u.id} value={u.id}>{u.name}</option>))}
                   </select>
                   <select required className="px-4 py-2 w-full border rounded-lg" value={assignmentForm.evaluateeId} onChange={(e) => setAssignmentForm({ ...assignmentForm, evaluateeId: e.target.value })}>
                     <option value="" disabled>เลือกผู้ถูกประเมิน...</option>
