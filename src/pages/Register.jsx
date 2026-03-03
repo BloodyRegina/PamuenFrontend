@@ -16,6 +16,7 @@ const Register = () => {
         name: '',
         email: '',
         departmentId: '',
+        role: '',
         password: ''
     });
     const [loading, setLoading] = useState(false);
@@ -134,6 +135,7 @@ const Register = () => {
                             className="px-4 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                             required
                         >
+                            <option value="" disabled>Select Role</option>
                             <option value="EVALUATOR">Evaluator</option>
                             <option value="EVALUATEE">Evaluatee</option>
                         </select>
