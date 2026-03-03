@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:4000/api', // Hardcoded per instruction
+    baseURL: 'https://pamuenbackend.onrender.com/api', // Hardcoded per instruction
 });
 
 // Request interceptor to attach JWT token
